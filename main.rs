@@ -4,14 +4,10 @@ mod structs;
 mod utils;
 mod alns;
 
-use std::env::current_exe;
-use std::thread::current;
 use structs::{Solution, Shift, Staff, Day};
 use utils::*;
 use alns::*;
 
-use crate::operators::destroy_ops;
-use crate::operators::repair_ops;
 
 fn main() {
     let days_info: Vec<Vec<usize>> = vec![
@@ -73,20 +69,24 @@ fn main() {
 
 
 
+    //Run heuristics
+    let final_sol = solve_alns(&staffs, &shifts, &days);
 
-
+    //Output log
+    println!("-----------------------Solving completed-----------------------------------");
+    println!("Final solution");
+    for row in &final_sol.staffs_schedule {
+        println!("{:?}", row);}
+    println!("Final best cost: {:?}", final_sol.fitness_val);
 }
 
 
-
-
-
+//-----------------------------------Solution debug-----------------------------------
 //Coverage requirements
 //println!("Schedule: {:?}", staffs_schedule);
 //println!("{:?}", shifts_schedule);
 
 
-//Debug
 //let current_sol = Solution::new(staffs_schedule, shifts, days);
 //println!("Fitness Value: {:?}", current_sol.fitness_val);
 //println!("Worktime Penalty: {:?}", current_sol.WorktimePenalty);
@@ -139,3 +139,26 @@ fn main() {
 //println!("Afternoon penalty: {:?}", current_sol.AfternoonPenalty);
 //println!("Consecutive penalty: {:?}", current_sol.ConsecutivePenalty);
 //println!("Coverage list: {:?}", current_sol.CoverageList)
+
+//To debug, run this code
+//let staff_schedule = generate_init_sched(&staffs, &days);
+//let init_solution = Solution::new(staff_schedule, &shifts, &days);
+
+//let destroy_sol = destroy_ops::worst_destroy(&init_solution);
+//let removed_staff = destroy_sol.removed_staff;
+//let partial_schedule = destroy_sol.partial_schedule;
+
+//let current_sol = repair_ops::greedy_repair(&partial_schedule, removed_staff, &staffs, &shifts, &days);
+//println!("Repair Sol: {:?}", current_sol.staffs_schedule);
+//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
+
+//println!("Repair solution");
+//for row in &current_sol.staffs_schedule{
+//println!("{:?}", row); }
+//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
+//println!("Worktime penalty: {:?}", current_sol.WorktimePenalty);
+//println!("Coverage penalty: {:?}", current_sol.CoveragePenalty);
+//println!("Afternoon penalty: {:?}", current_sol.AfternoonPenalty);
+//println!("Consecutive penalty: {:?}", current_sol.ConsecutivePenalty);
+//println!("Coverage list: {:?}", current_sol.CoverageList)
+

@@ -19,6 +19,11 @@ pub const WORKING_SHIFT: [i32; 5] = [1, 2, 3, 4 ,5];
 //ALNS config
 pub const GLOBAL_BEST: f64 = 15.0;
 pub const LOCAL_BEST: f64 = 10.0;
-pub const NEW_SOLUTION: f64 = 5.0;
-pub const UPDATE_FREQUENCY: usize = 10;
+pub const ACCEPTED: f64 = 5.0;
+pub const UPDATE_FREQUENCY: usize = 5;
+pub const ITERATIONS: usize = 200;
+pub const REACTION_FACTOR: f64 = 0.1;
+pub const START_TEMP: f64= 100.0;
+pub const COOLING_RATE: f64 = 0.9995;
+
 

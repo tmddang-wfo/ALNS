@@ -16,7 +16,7 @@ pub fn random_destroy (sol: &Solution) -> DestroyResult {
     let mut partial_schedule = sol.staffs_schedule.clone();
 
     let mut rng = rand::rng();
-    let removed_staff = rng.random_range(0..STAFF_NUM+1);
+    let removed_staff = rng.random_range(0..STAFF_NUM);
 
     for k in 0..DAY_NUM {
         partial_schedule[removed_staff][k] = 0;

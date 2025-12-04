@@ -3,6 +3,9 @@ use std::env::current_exe;
 use crate::utils::*;
 use crate::structs::*;
 use std::cmp;
+use rand::seq::SliceRandom;
+use rand::Rng;
+use rand::rng;
 
 pub fn check_coverage(partial: &Vec<Vec<usize>>, removed_staff: usize,
                       shifts: &Vec<Shift>, days: &Vec<Day>,
@@ -111,6 +114,63 @@ pub fn greedy_repair(partial: &Vec<Vec<usize>>,
 
 
     for k in 0..DAY_NUM{
+        //Check PH assignment first
+        if days[k].day_type == 2 && staffs[removed_staff].group == 2 {
+            repair_sol[k] = PH_SHIFT
+        } else {
+            let target_shift = check_coverage(&current_sol, removed_staff, shifts, days, k);
+            repair_sol[k] = target_shift;
+        }
+        //Update current solution
+        current_sol[removed_staff][k] = repair_sol[k]
+    }
+
+    //current_sol
+    Solution::new(current_sol, shifts, days)
+}
+
+
+pub fn reverse_greedy_repair(partial: &Vec<Vec<usize>>,
+                     removed_staff: usize,
+                     staffs: &Vec<Staff>,
+                     shifts: &Vec<Shift>,
+                     days: &Vec<Day>) -> Solution {
+
+    let mut current_sol = partial.clone();
+    let mut repair_sol = partial[removed_staff].clone();
+
+
+    for k in (0..DAY_NUM).rev() {
+        //Check PH assignment first
+        if days[k].day_type == 2 && staffs[removed_staff].group == 2 {
+            repair_sol[k] = PH_SHIFT
+        } else {
+            let target_shift = check_coverage(&current_sol, removed_staff, shifts, days, k);
+            repair_sol[k] = target_shift;
+        }
+        //Update current solution
+        current_sol[removed_staff][k] = repair_sol[k]
+    }
+
+    //current_sol
+    Solution::new(current_sol, shifts, days)
+}
+
+pub fn random_greedy_repair(partial: &Vec<Vec<usize>>,
+                             removed_staff: usize,
+                             staffs: &Vec<Staff>,
+                             shifts: &Vec<Shift>,
+                             days: &Vec<Day>) -> Solution {
+
+    let mut current_sol = partial.clone();
+    let mut repair_sol = partial[removed_staff].clone();
+
+    let mut shuffle_days: Vec<usize> = (0..DAY_NUM).collect();
+    let mut rng = rng();
+    shuffle_days.shuffle(&mut rng);
+
+
+    for &k in shuffle_days.iter() {
         //Check PH assignment first
         if days[k].day_type == 2 && staffs[removed_staff].group == 2 {
             repair_sol[k] = PH_SHIFT

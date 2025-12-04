@@ -34,13 +34,6 @@ pub struct Solution {
     pub CoverageList: Vec<usize>
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum DestroyOp {Random, Worst}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum RepairOp {Greedy}
-
-
 impl Solution {
     pub fn new(staffs_schedule: Vec<Vec<usize>>, shifts: &Vec<Shift>, days: &Vec<Day>) -> Self {
         let CoveragePenalty: i32 = Self::calculate_CoveragePenalty(&staffs_schedule, &days);
