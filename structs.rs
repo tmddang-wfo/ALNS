@@ -10,6 +10,7 @@ pub struct Staff {
 
 #[derive(Debug)]
 pub struct Day {
+    pub order: usize,
     pub id: usize,
     pub day_type: usize,
     pub morning_cov: usize,

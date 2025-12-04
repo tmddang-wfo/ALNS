@@ -15,6 +15,7 @@ pub const W2: f64 = 0.25;
 pub const W3: f64 = 0.25;
 pub const W4: f64 = 0.25;
 pub const WORKING_SHIFT: [i32; 5] = [1, 2, 3, 4 ,5];
+pub const WEEK_NUM: usize = 4;
 
 //ALNS config
 pub const GLOBAL_BEST: f64 = 15.0;
@@ -25,5 +26,7 @@ pub const ITERATIONS: usize = 200;
 pub const REACTION_FACTOR: f64 = 0.1;
 pub const START_TEMP: f64= 100.0;
 pub const COOLING_RATE: f64 = 0.9995;
+
+
 
 

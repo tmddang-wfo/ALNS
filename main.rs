@@ -8,26 +8,82 @@ use structs::{Solution, Shift, Staff, Day};
 use utils::*;
 use alns::*;
 
+use calamine::{open_workbook, Data, Reader, Xlsx};
+use std::error::Error;
+
+fn extract_row(row: &[Data]) -> Vec<i32> {
+    row.iter()
+        .filter_map(|cell| match cell {
+            Data::Int(i) => Some(*i as i32),
+            Data::Float(f) => Some(*f as i32),
+            _ => None,
+        })
+        .collect()
+}
+
+fn read_excel(path: &str, sheet_name: &str) -> Result<(Vec<Vec<usize>>), Box<dyn Error>> {
+
+    let mut workbook: Xlsx<_> = open_workbook(path)?;
+
+    let range = workbook
+        .worksheet_range(sheet_name)?;
+
+        // Extract 4 rows at once using helper function
+    let mut iter = range.rows();
+
+    let idx_vec= extract_row(iter.next().unwrap_or(&[]));
+    let type_vec= extract_row(iter.next().unwrap_or(&[]));
+    let morning_vec= extract_row(iter.next().unwrap_or(&[]));
+    let afternoon_vec= extract_row(iter.next().unwrap_or(&[]));
+
+    // Construct days_info
+    let mut days_info: Vec<Vec<usize>> = Vec::new();
+
+    for k in 0..28 {
+        days_info.push(vec![
+            idx_vec[k] as usize,
+            type_vec[k] as usize,
+            morning_vec[k] as usize,
+            afternoon_vec[k] as usize,
+        ]);
+        }
+    Ok((days_info))
+}
+
 
 fn main() {
-    let days_info: Vec<Vec<usize>> = vec![
-        vec![0, 0, 4, 3],
-        vec![1, 0, 4, 3],
-        vec![2, 2, 3, 3],
-        vec![3, 2, 3, 3],
-        vec![4, 0, 4, 3],
-        vec![5, 1, 3, 3],
-        vec![6, 1, 3, 3]
-    ];
+    let path = "C:/Users/trinh/RustroverProjects/ExcelReader/monthly_data.xlsx";
+    let sheet_name = "input_data";
+    let monthly_data = read_excel(&path, &sheet_name).unwrap();
 
-    //Define days struct
-    let days: Vec<Day> = (0..DAY_NUM).map(|i| Day{
-        id: i,
-        day_type: days_info[i][1],
-        morning_cov: days_info[i][2],
-        afternoon_cov: days_info[i][3],
-    }).collect();
+    let mut weeks: Vec<Vec<Day>> = Vec::new();
 
+    let mut first_day: usize = 0;
+    let mut last_day: usize = DAY_NUM;
+
+    for w in 0..WEEK_NUM {
+        let mut days_info: Vec<Vec<usize>> = Vec::new();
+
+        for k in first_day..last_day {
+            days_info.push(monthly_data[k].to_vec());
+        }
+
+        //Define days struct
+        let days: Vec<Day> = (0..DAY_NUM).map(|i| Day{
+            id: i,
+            order: days_info[i][0],
+            day_type: days_info[i][1],
+            morning_cov: days_info[i][2],
+            afternoon_cov: days_info[i][3],
+        }).collect();
+
+        weeks.push(days);
+
+        first_day += DAY_NUM;
+        last_day += DAY_NUM;
+    }
+
+    let days = &weeks[0];
 
     let staffs_info: Vec<Vec<usize>> = vec![
         vec![0, 0, 1], //Staff 1, AG1, Fixed shifts
@@ -80,85 +136,4 @@ fn main() {
     println!("Final best cost: {:?}", final_sol.fitness_val);
 }
 
-
-//-----------------------------------Solution debug-----------------------------------
-//Coverage requirements
-//println!("Schedule: {:?}", staffs_schedule);
-//println!("{:?}", shifts_schedule);
-
-
-//let current_sol = Solution::new(staffs_schedule, shifts, days);
-//println!("Fitness Value: {:?}", current_sol.fitness_val);
-//println!("Worktime Penalty: {:?}", current_sol.WorktimePenalty);
-//println!("Afternoon Penalty: {:?}", current_sol.AfternoonPenalty);
-//println!("Coverage Penalty: {:?}", current_sol.CoveragePenalty);
-//println!("Consecutive Penalty: {:?}", current_sol.ConsecutivePenalty);
-
-//let staff_schedule = generate_init_sched(&staffs, &days);
-//let init_solution = Solution::new(staff_schedule, &shifts, &days);
-//println!("Initial solution: {:?}", init_solution.staffs_schedule);
-//println!("Initial solution fitness val: {:?}", init_solution.fitness_val);
-
-//println!("Initial solution");
-//for row in &init_solution.staffs_schedule{
-//   println!("{:?}", row);
-//}
-//println!("Initial solution fitness val: {:?}", init_solution.fitness_val);
-//println!("Repair solution fitness val: {:?}", init_solution.fitness_val);
-//println!("Worktime penalty: {:?}", init_solution.WorktimePenalty);
-//println!("Coverage penalty: {:?}", init_solution.CoveragePenalty);
-//println!("Afternoon penalty: {:?}", init_solution.AfternoonPenalty);
-//println!("Consecutive penalty: {:?}", init_solution.ConsecutivePenalty);
-
-
-//let destroy_sol = destroy_ops::worst_destroy(&init_solution);
-//let removed_staff = destroy_sol.removed_staff;
-//let partial_schedule = destroy_sol.partial_schedule;
-//println!("Partial Sol: {:?}", partial_schedule);
-
-//println!("Partial solution");
-//for row in &partial_schedule{
-//    println!("{:?}", row);
-//}
-
-
-
-//let current_sol = repair_ops::greedy_repair(&partial_schedule,
-//                                            removed_staff, &staffs,
-//                                           &shifts, &days);
-//println!("Repair Sol: {:?}", current_sol.staffs_schedule);
-//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
-
-//println!("Repair solution");
-//for row in &current_sol.staffs_schedule{
-//    println!("{:?}", row);
-//}
-//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
-//println!("Worktime penalty: {:?}", current_sol.WorktimePenalty);
-//println!("Coverage penalty: {:?}", current_sol.CoveragePenalty);
-//println!("Afternoon penalty: {:?}", current_sol.AfternoonPenalty);
-//println!("Consecutive penalty: {:?}", current_sol.ConsecutivePenalty);
-//println!("Coverage list: {:?}", current_sol.CoverageList)
-
-//To debug, run this code
-//let staff_schedule = generate_init_sched(&staffs, &days);
-//let init_solution = Solution::new(staff_schedule, &shifts, &days);
-
-//let destroy_sol = destroy_ops::worst_destroy(&init_solution);
-//let removed_staff = destroy_sol.removed_staff;
-//let partial_schedule = destroy_sol.partial_schedule;
-
-//let current_sol = repair_ops::greedy_repair(&partial_schedule, removed_staff, &staffs, &shifts, &days);
-//println!("Repair Sol: {:?}", current_sol.staffs_schedule);
-//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
-
-//println!("Repair solution");
-//for row in &current_sol.staffs_schedule{
-//println!("{:?}", row); }
-//println!("Repair solution fitness val: {:?}", current_sol.fitness_val);
-//println!("Worktime penalty: {:?}", current_sol.WorktimePenalty);
-//println!("Coverage penalty: {:?}", current_sol.CoveragePenalty);
-//println!("Afternoon penalty: {:?}", current_sol.AfternoonPenalty);
-//println!("Consecutive penalty: {:?}", current_sol.ConsecutivePenalty);
-//println!("Coverage list: {:?}", current_sol.CoverageList)
 
