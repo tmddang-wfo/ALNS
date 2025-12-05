@@ -26,6 +26,7 @@ pub const ITERATIONS: usize = 200;
 pub const REACTION_FACTOR: f64 = 0.1;
 pub const START_TEMP: f64= 100.0;
 pub const COOLING_RATE: f64 = 0.9995;
+pub const LOWER_BOUND: f64 = 5.0;
 
 
 

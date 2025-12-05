@@ -3,6 +3,7 @@ use std::env::current_exe;
 use crate::utils::*;
 use crate::structs::*;
 use std::cmp;
+use std::time::Duration;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use rand::rng;
@@ -171,6 +172,52 @@ pub fn random_greedy_repair(partial: &Vec<Vec<usize>>,
 
 
     for &k in shuffle_days.iter() {
+        //Check PH assignment first
+        if days[k].day_type == 2 && staffs[removed_staff].group == 2 {
+            repair_sol[k] = PH_SHIFT
+        } else {
+            let target_shift = check_coverage(&current_sol, removed_staff, shifts, days, k);
+            repair_sol[k] = target_shift;
+        }
+        //Update current solution
+        current_sol[removed_staff][k] = repair_sol[k]
+    }
+
+    //current_sol
+    Solution::new(current_sol, shifts, days)
+}
+
+pub fn critical_greedy_repair(partial: &Vec<Vec<usize>>,
+                            removed_staff: usize,
+                            staffs: &Vec<Staff>,
+                            shifts: &Vec<Shift>,
+                            days: &Vec<Day>) -> Solution {
+
+    let mut current_sol = partial.clone();
+    let mut repair_sol = partial[removed_staff].clone();
+
+    let mut critical_day: Vec<usize> = Vec::new();
+    for  k in 0..DAY_NUM{
+        let mut critical_num = 0;
+        for i in 0..STAFF_NUM{
+            if current_sol[i][k] == PH_SHIFT || current_sol[i][k] == DAY_OFF {
+                critical_num += 1;
+            }
+        }
+        critical_day.push(critical_num)
+    }
+    let mut critical_pairs: Vec<(usize, usize)> =
+        (0..DAY_NUM).into_iter().zip(critical_day.into_iter()).collect();
+
+    critical_pairs.sort_by_key(|&(_,critical_day)| critical_day);
+
+    let mut sorted_crtical_day: Vec<usize> = Vec::new();
+    for l in 0..critical_pairs.len() {
+        sorted_crtical_day.push(critical_pairs[l].0);
+    }
+
+
+    for &k in sorted_crtical_day.iter() {
         //Check PH assignment first
         if days[k].day_type == 2 && staffs[removed_staff].group == 2 {
             repair_sol[k] = PH_SHIFT

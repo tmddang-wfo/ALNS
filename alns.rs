@@ -2,8 +2,8 @@
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::prelude::*;
-use crate::operators::destroy_ops::{random_destroy, worst_destroy};
-use crate::operators::repair_ops::{greedy_repair, random_greedy_repair, reverse_greedy_repair};
+use crate::operators::destroy_ops::*;
+use crate::operators::repair_ops::*;
 use crate::structs::*;
 use crate::utils::*;
 use std::f64::consts::E;
@@ -12,7 +12,7 @@ use std::f64::consts::E;
 pub enum DestroyOp {Random, Worst}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum RepairOp {Greedy, Reverse_Greedy, Random_Greedy}
+pub enum RepairOp {Greedy, Reverse_Greedy, Random_Greedy, Critical_Greedy}
 
 
 pub fn generate_init_sched(staffs: &Vec<Staff>, days: &Vec<Day>) -> Vec<Vec<usize>> {
@@ -85,6 +85,7 @@ pub struct OperatorWeights {
     repair_greedy: f64,
     repair_reverse_greedy: f64,
     repair_random_greedy: f64,
+    repair_critical_greedy: f64,
 }
 
 impl OperatorWeights {
@@ -95,6 +96,7 @@ impl OperatorWeights {
             repair_greedy: 1.0,
             repair_reverse_greedy: 1.0,
             repair_random_greedy: 1.0,
+            repair_critical_greedy: 1.0,
         }
     }
 
@@ -109,14 +111,19 @@ impl OperatorWeights {
     }
 
     fn select_repair(&self, rng: &mut ThreadRng) -> RepairOp {
-        let total = self.repair_greedy + self.repair_reverse_greedy + self.repair_random_greedy;
+        let total = self.repair_greedy
+            + self.repair_reverse_greedy
+            + self.repair_random_greedy
+            + self.repair_critical_greedy;
         let val = rng.random::<f64>()*total;
         if val < self.repair_greedy {
             RepairOp::Greedy
         } else if val < self.repair_greedy + self.repair_reverse_greedy  {
             RepairOp::Reverse_Greedy
-        } else {
+        } else if val < self.repair_greedy + self.repair_reverse_greedy + self.repair_random_greedy {
             RepairOp::Random_Greedy
+        } else {
+            RepairOp::Critical_Greedy
         }
     }
 }
@@ -124,7 +131,7 @@ impl OperatorWeights {
 pub fn solve_alns(staffs: &Vec<Staff>,
                   shifts: &Vec<Shift>,
                   days: &Vec<Day>,
-                  ) -> Solution {
+                  ) -> (Solution, Vec<f64>) {
     let mut rng = rand::rng();
 
     //ALNS solver
@@ -136,22 +143,25 @@ pub fn solve_alns(staffs: &Vec<Staff>,
     };
 
     //Create initial solution
+    let mut alns_result: Vec<f64> = Vec::new();
     let initial_sol = generate_init_sched(&staffs, &days);
     let mut current_sol = Solution::new(initial_sol, shifts, days);
     let mut best_sol = current_sol.clone();
 
     //Initiate ALNS state
-    let mut temperature = config.start_temp;
-    //let mut temperature = current_sol.fitness_val*0.2;
+    //let mut temperature = config.start_temp;
+    let mut temperature = 0.2*current_sol.fitness_val;
 
     let mut weight = OperatorWeights::new();
     let mut scores = OperatorWeights{destroy_random: 0.0, destroy_worst: 0.0,
-                                repair_greedy: 0.0, repair_reverse_greedy: 0.0, repair_random_greedy: 0.0};
+                                repair_greedy: 0.0, repair_reverse_greedy: 0.0,
+                                repair_random_greedy: 0.0, repair_critical_greedy: 0.0};
 
     let mut counts = OperatorWeights{destroy_random: 0.0, destroy_worst: 0.0,
-                                repair_greedy: 0.0, repair_reverse_greedy: 0.0, repair_random_greedy: 0.0};
+                                repair_greedy: 0.0, repair_reverse_greedy: 0.0,
+                                repair_random_greedy: 0.0, repair_critical_greedy: 0.0};
 
-    println!("Initial cost: {:.2}", current_sol.fitness_val);
+    //println!("Initial cost: {:.2}", current_sol.fitness_val);
 
 
     for i in 0..config.iterations {
@@ -173,8 +183,14 @@ pub fn solve_alns(staffs: &Vec<Staff>,
                 &destroy_res.partial_schedule, destroy_res.removed_staff, staffs, shifts, days),
 
             RepairOp::Random_Greedy => random_greedy_repair(
-                &destroy_res.partial_schedule, destroy_res.removed_staff, staffs, shifts, days)
+                &destroy_res.partial_schedule, destroy_res.removed_staff, staffs, shifts, days),
+
+            RepairOp::Critical_Greedy => critical_greedy_repair(
+                &destroy_res.partial_schedule, destroy_res.removed_staff, staffs, shifts, days),
         };
+
+        //Record candidate solution fitness value
+        alns_result.push(candidate_sol.fitness_val);
 
         //Evaluate new solution
         let delta = candidate_sol.fitness_val - current_sol.fitness_val;
@@ -185,7 +201,7 @@ pub fn solve_alns(staffs: &Vec<Staff>,
             best_sol = candidate_sol.clone();
             current_sol = candidate_sol;
             op_score = GLOBAL_BEST;
-            println!("Iter {}: New global best found! Cost: {:2}", i, best_sol.fitness_val);
+            //println!("Iter {}: New global best found! Cost: {:2}", i, best_sol.fitness_val);
         }
 
         //Case 2 Find the new solution better than current one
@@ -230,6 +246,11 @@ pub fn solve_alns(staffs: &Vec<Staff>,
                 scores.repair_random_greedy += op_score;
                 counts.repair_random_greedy += 1.0;
             }
+
+            RepairOp::Critical_Greedy => {
+                scores.repair_critical_greedy += op_score;
+                counts.repair_critical_greedy += 1.0;
+            }
         }
 
         //Update adaptive weights
@@ -269,14 +290,22 @@ pub fn solve_alns(staffs: &Vec<Staff>,
                     + config.reaction_factor*performance;
             }
 
+            //Update critical greedy repair
+            if counts.repair_critical_greedy > 0.0 {
+                let performance = scores.repair_critical_greedy / counts.repair_critical_greedy;
+                weight.repair_critical_greedy = (1.0 - config.reaction_factor) * weight.repair_critical_greedy
+                    + config.reaction_factor*performance;
+            }
 
             //Reset scores/counts
             scores = OperatorWeights{destroy_random: 0.0, destroy_worst: 0.0,
-                repair_greedy: 0.0, repair_reverse_greedy: 0.0, repair_random_greedy: 0.0};
+                repair_greedy: 0.0, repair_reverse_greedy: 0.0,
+                repair_random_greedy: 0.0, repair_critical_greedy: 0.0};
 
 
             counts = OperatorWeights{destroy_random: 0.0, destroy_worst: 0.0,
-                repair_greedy: 0.0, repair_reverse_greedy: 0.0, repair_random_greedy: 0.0};
+                repair_greedy: 0.0, repair_reverse_greedy: 0.0,
+                repair_random_greedy: 0.0, repair_critical_greedy: 0.0};
         }
 
         //Cooldown temperatures
@@ -284,17 +313,19 @@ pub fn solve_alns(staffs: &Vec<Staff>,
     }
 
     //Operator statistics
-    println!("ALNS statistics");
-    println!("Final temperature: {:.2}", temperature);
-    println!("Final Weights");
-    println!("[Random destroy: {:.2}, Worst destroy: {:.2}, \
-             Greedy repair: {:.2}, Reverse Greedy repair: {:.2}, Random Greedy repair: {:.2}]",
-             weight.destroy_random,
-             weight.destroy_worst,
-             weight.repair_greedy,
-             weight.repair_reverse_greedy,
-             weight.repair_random_greedy);
+    //println!("ALNS statistics");
+    //println!("Final temperature: {:.2}", temperature);
+    //println!("Final Weights");
+    //println!("[Random destroy: {:.2}, Worst destroy: {:.2}, \
+    //         Greedy repair: {:.2}, Reverse Greedy repair: {:.2}, \
+    //         Random Greedy repair: {:.2}, Critical Greedy repair: {:.2}]",
+    //         weight.destroy_random,
+    //         weight.destroy_worst,
+    //         weight.repair_greedy,
+    //         weight.repair_reverse_greedy,
+    //         weight.repair_random_greedy,
+    //         weight.repair_critical_greedy);
 
     //Return best global solution
-    best_sol
+    (best_sol, alns_result)
 }
